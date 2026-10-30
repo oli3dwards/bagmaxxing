@@ -13,10 +13,10 @@ user=${1:?usage: install-root.sh USERNAME}
 id "$user" >/dev/null
 [ "$(id -u)" = 0 ] || { echo "must run as root" >&2; exit 1; }
 
-rule=/etc/sudoers.d/lidawake
+rule=/etc/sudoers.d/bagmaxxing
 tmp=$(mktemp)
 cat > "$tmp" <<EOF
-# lidawake: keep the Mac running with the lid closed.
+# bagmaxxing: keep the Mac running with the lid closed.
 $user ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1
 EOF
 visudo -cf "$tmp" >/dev/null

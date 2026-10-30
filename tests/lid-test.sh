@@ -9,7 +9,7 @@
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-DIR="$HOME/Library/Application Support/lidawake"
+DIR="$HOME/Library/Application Support/bagmaxxing"
 CONF="$DIR/config.sh"
 restore() { # takes the pretend setting out; anything else in config.sh stays
   [ -e "$CONF" ] || return 0
@@ -32,7 +32,7 @@ echo "PART 1: lid closed at $(stamp)"
 prev=$start
 while [ $(( $(date +%s) - start )) -lt 90 ]; do
   now=$(date +%s)
-  echo "$(stamp) gap=$((now - prev))s lid=$(lid) $(batt)heat=$("$ROOT/build/lidawake-thermal") http=$(online)"
+  echo "$(stamp) gap=$((now - prev))s lid=$(lid) $(batt)heat=$("$ROOT/build/bagmaxxing-thermal") http=$(online)"
   prev=$now
   sleep 5
 done
@@ -58,8 +58,8 @@ else
   restore
 fi
 
-echo "--- lidawake log since the lid closed"
-awk -v t="$(date -r "$start" '+%Y-%m-%d %H:%M:%S')" '($1" "$2) >= t' "$DIR/lidawake.log"
+echo "--- bagmaxxing log since the lid closed"
+awk -v t="$(date -r "$start" '+%Y-%m-%d %H:%M:%S')" '($1" "$2) >= t' "$DIR/bagmaxxing.log"
 echo "--- macOS sleep/wake record since the lid closed"
 pmset -g log | tail -n 3000 | awk -v t="$(date -r "$start" '+%Y-%m-%d %H:%M:%S')" \
   '($1" "$2) >= t && $4 ~ /^(Sleep|Wake|DarkWake)$/' | cut -c1-160

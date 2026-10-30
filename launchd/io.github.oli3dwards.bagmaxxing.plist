@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>io.github.oli3dwards.lidawake</string>
+  <string>io.github.oli3dwards.bagmaxxing</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>__ROOT__/bin/lidawake</string>
+    <string>__ROOT__/bin/bagmaxxing</string>
     <string>tick</string>
   </array>
   <key>RunAtLoad</key>
@@ -15,6 +15,6 @@
   <key>StartInterval</key>
   <integer>20</integer>
   <key>StandardErrorPath</key>
-  <string>__HOME__/Library/Application Support/lidawake/launchd.err</string>
+  <string>__HOME__/Library/Application Support/bagmaxxing/launchd.err</string>
 </dict>
 </plist>

@@ -1,16 +1,16 @@
 #!/bin/bash
-# lidawake: keep the Mac running with the lid closed, like Windows' "when I close
+# bagmaxxing: keep the Mac running with the lid closed, like Windows' "when I close
 # the lid: do nothing".
 #
 # It holds macOS's hidden SleepDisabled switch (`pmset -a disablesleep 1`) on, and
 # lets go of it only for low battery or sustained heat. When that happens with the
 # lid shut, it sends a phone notification and puts the Mac to sleep.
 #
-# Usage:  lidawake [status]   what it's doing now, and whether it's installed
-#         lidawake on | off   the menu bar switch, from the terminal
-#         lidawake tick       one check; launchd runs this every 20 s
-#         lidawake log [N]    the last N log lines (default 30)
-#         lidawake uninstall  remove it and put lid-close sleep back to normal
+# Usage:  bagmaxxing [status]   what it's doing now, and whether it's installed
+#         bagmaxxing on | off   the menu bar switch, from the terminal
+#         bagmaxxing tick       one check; launchd runs this every 20 s
+#         bagmaxxing log [N]    the last N log lines (default 30)
+#         bagmaxxing uninstall  remove it and put lid-close sleep back to normal
 #
 # Deliberately dependency-free: only /usr/bin tools, because launchd runs with a
 # minimal PATH.
@@ -19,12 +19,12 @@ set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
 ROOT=$(cd "$(dirname "$(readlink "$0" || echo "$0")")/.." && pwd)
-DIR="$HOME/Library/Application Support/lidawake"
+DIR="$HOME/Library/Application Support/bagmaxxing"
 MODE_FILE="$DIR/mode"
 STATE_FILE="$DIR/state"     # HOT_SINCE CUT WARNED, carried between ticks
 STATUS_FILE="$DIR/status"   # key=value, read by the menu bar icon
-LOG="$DIR/lidawake.log"
-THERMAL="$ROOT/build/lidawake-thermal"
+LOG="$DIR/bagmaxxing.log"
+THERMAL="$ROOT/build/bagmaxxing-thermal"
 
 LOW_BATTERY=15
 RESUME_BATTERY=20
@@ -165,7 +165,7 @@ status() {
   fi
   [ -r "$STATUS_FILE" ] && sed -n -E 's/^(reason|power|battery|thermal|lid)=/  \1: /p' "$STATUS_FILE"
   has_permission && echo "  permission: ok" || echo "  permission: MISSING (run install.sh)"
-  launchctl print "gui/$(id -u)/io.github.oli3dwards.lidawake" >/dev/null 2>&1 \
+  launchctl print "gui/$(id -u)/io.github.oli3dwards.bagmaxxing" >/dev/null 2>&1 \
     && echo "  background check: running every 20 s" || echo "  background check: NOT LOADED (run install.sh)"
 }
 

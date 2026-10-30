@@ -1,4 +1,4 @@
-// Prints macOS's own heat-strain reading for bin/lidawake: nominal, fair, serious or critical.
+// Prints macOS's own heat-strain reading for bin/bagmaxxing: nominal, fair, serious or critical.
 import Foundation
 
 switch ProcessInfo.processInfo.thermalState {

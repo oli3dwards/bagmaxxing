@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>io.github.oli3dwards.lidawake-menubar</string>
+  <string>io.github.oli3dwards.bagmaxxing-menubar</string>
   <key>ProgramArguments</key>
   <array>
-    <string>__ROOT__/build/lidawake-menubar</string>
+    <string>__ROOT__/build/bagmaxxing-menubar</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -22,6 +22,6 @@
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardErrorPath</key>
-  <string>__HOME__/Library/Application Support/lidawake/menubar.err</string>
+  <string>__HOME__/Library/Application Support/bagmaxxing/menubar.err</string>
 </dict>
 </plist>

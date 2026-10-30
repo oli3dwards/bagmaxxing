@@ -1,5 +1,5 @@
-# lidawake's decision rule, kept free of side effects so it can be tested.
-# Sourced by bin/lidawake and tests/test_decide.sh.
+# bagmaxxing's decision rule, kept free of side effects so it can be tested.
+# Sourced by bin/bagmaxxing and tests/test_decide.sh.
 #
 # decide MODE POWER PCT THERMAL HOT_SINCE CUT NOW
 #   MODE       on | off            (the menu bar switch)

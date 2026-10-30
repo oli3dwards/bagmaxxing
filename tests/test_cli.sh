@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end tests: runs the real bin/lidawake, install.sh and uninstall.sh in a throwaway
+# End-to-end tests: runs the real bin/bagmaxxing, install.sh and uninstall.sh in a throwaway
 # HOME. macOS's own commands are replaced by shell functions, so nothing here can touch
 # the Mac's real sleep setting. Run: bash tests/test_cli.sh
 set -u
@@ -8,10 +8,10 @@ SANDBOX=$(mktemp -d)
 trap 'rm -rf "$SANDBOX"' EXIT
 export FAKE="$SANDBOX/fake"
 FAKE_HOME="$SANDBOX/home"
-DIR="$FAKE_HOME/Library/Application Support/lidawake"
+DIR="$FAKE_HOME/Library/Application Support/bagmaxxing"
 AGENTS="$FAKE_HOME/Library/LaunchAgents"
 CLONE="$SANDBOX/clone"
-LABEL=io.github.oli3dwards.lidawake
+LABEL=io.github.oli3dwards.bagmaxxing
 fails=0
 
 # The fake Mac. Each command reads the world from files in $FAKE and records what it did.
@@ -58,17 +58,17 @@ world() { # power pct lid idle thermal switch
   echo "$5" > "$FAKE/thermal"; echo "$6" > "$FAKE/switch"
 }
 
-fresh() { # lidawake installed, with phone alerts on and nothing recorded yet
+fresh() { # bagmaxxing installed, with phone alerts on and nothing recorded yet
   rm -rf "$FAKE" "$FAKE_HOME"
   mkdir -p "$FAKE" "$DIR/app/build" "$AGENTS" "$FAKE_HOME/.local/bin"
   cp -R "$REPO/bin" "$REPO/lib" "$REPO/uninstall.sh" "$DIR/app/"
-  printf '#!/bin/bash\ncat "$FAKE/thermal"\n' > "$DIR/app/build/lidawake-thermal"
-  chmod +x "$DIR/app/build/lidawake-thermal"
+  printf '#!/bin/bash\ncat "$FAKE/thermal"\n' > "$DIR/app/build/bagmaxxing-thermal"
+  chmod +x "$DIR/app/build/bagmaxxing-thermal"
   touch "$FAKE/calls" "$FAKE/sudo_ok"
   echo 'NTFY_TOPIC=test-topic' > "$DIR/config.sh"
 }
 
-cli() { HOME="$FAKE_HOME" /bin/bash "$DIR/app/bin/lidawake" "$@"; }
+cli() { HOME="$FAKE_HOME" /bin/bash "$DIR/app/bin/bagmaxxing" "$@"; }
 count() { grep -c -- "$1" "$FAKE/calls"; }
 contains() { case $1 in *"$2"*) echo yes ;; *) echo no ;; esac; }
 
@@ -135,14 +135,14 @@ is "no permission: status says so"                 "$(contains "$(cli status)" '
 # --- uninstall
 
 fresh; world ac 100 No 300 nominal 1; touch "$AGENTS/$LABEL.plist" "$AGENTS/$LABEL-menubar.plist"
-ln -s "$DIR/app/bin/lidawake" "$FAKE_HOME/.local/bin/lidawake"
+ln -s "$DIR/app/bin/bagmaxxing" "$FAKE_HOME/.local/bin/bagmaxxing"
 out=$(cli uninstall)
 is "uninstall stops the check before the switch"   "$(tail -n 1 "$FAKE/calls")" "switch 0"
 is "uninstall stops both background jobs"          "$(count 'launchctl bootout')" 2
 is "uninstall turns the switch off"                "$(cat "$FAKE/switch")" 0
 is "uninstall says the switch is back to normal"   "$(contains "$out" 'back to normal')" yes
 is "uninstall removes the background jobs"         "$(ls "$AGENTS" | wc -l | tr -d ' ')" 0
-is "uninstall removes the command"                 "$([ -e "$FAKE_HOME/.local/bin/lidawake" ] && echo there || echo gone)" gone
+is "uninstall removes the command"                 "$([ -e "$FAKE_HOME/.local/bin/bagmaxxing" ] && echo there || echo gone)" gone
 is "uninstall removes the installed copy"          "$([ -e "$DIR/app" ] && echo there || echo gone)" gone
 
 fresh; world ac 100 No 300 nominal 1; rm "$FAKE/sudo_ok"
@@ -166,12 +166,12 @@ new_clone; out=$(do_install)
 is "install asks for the permission and carries on" "$(count 'launchctl bootstrap')" 2
 is "install fills in the background job paths"     "$(grep -c '__' "$AGENTS/$LABEL.plist" "$AGENTS/$LABEL-menubar.plist" | cut -d: -f2 | tr -d '\n')" 00
 is "install writes valid background jobs"          "$(plutil -lint -s "$AGENTS/$LABEL.plist" "$AGENTS/$LABEL-menubar.plist" && echo valid)" valid
-is "install points the job at the installed copy"  "$(grep -c 'Application Support/lidawake/app/bin/lidawake' "$AGENTS/$LABEL.plist")" 1
+is "install points the job at the installed copy"  "$(grep -c 'Application Support/bagmaxxing/app/bin/bagmaxxing' "$AGENTS/$LABEL.plist")" 1
 is "install says how to fix PATH"                  "$(contains "$out" 'export PATH')" yes
 is "install ends by showing the status"            "$(contains "$out" 'Lid-closed mode: ON')" yes
 is "install turns the switch on itself"            "$(cat "$FAKE/switch")" 1
 rm -rf "$CLONE"
-is "it survives the clone being deleted"           "$(contains "$(HOME="$FAKE_HOME" /bin/bash "$FAKE_HOME/.local/bin/lidawake" status)" 'Lid-closed mode:')" yes
+is "it survives the clone being deleted"           "$(contains "$(HOME="$FAKE_HOME" /bin/bash "$FAKE_HOME/.local/bin/bagmaxxing" status)" 'Lid-closed mode:')" yes
 
 new_clone; touch "$FAKE/no_tools"; out=$(do_install); code=$?
 is "no Apple tools: stops"                         "$code" 1

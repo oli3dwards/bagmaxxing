@@ -1,14 +1,14 @@
-// lidawake's menu bar icon. It reads the status file bin/lidawake writes on every tick, and
-// its switch runs `lidawake on|off`, so the background check keeps working with or without it.
-// launchd: io.github.oli3dwards.lidawake-menubar.
+// bagmaxxing's menu bar icon. It reads the status file bin/bagmaxxing writes on every tick, and
+// its switch runs `bagmaxxing on|off`, so the background check keeps working with or without it.
+// launchd: io.github.oli3dwards.bagmaxxing-menubar.
 import AppKit
 
 let home = FileManager.default.homeDirectoryForCurrentUser.path
-let statusPath = home + "/Library/Application Support/lidawake/status"
-let logPath = home + "/Library/Application Support/lidawake/lidawake.log"
+let statusPath = home + "/Library/Application Support/bagmaxxing/status"
+let logPath = home + "/Library/Application Support/bagmaxxing/bagmaxxing.log"
 let cli = URL(fileURLWithPath: CommandLine.arguments[0])
     .resolvingSymlinksInPath().deletingLastPathComponent()
-    .deletingLastPathComponent().appendingPathComponent("bin/lidawake").path
+    .deletingLastPathComponent().appendingPathComponent("bin/bagmaxxing").path
 
 func readStatus() -> [String: String] {
     guard let text = try? String(contentsOfFile: statusPath, encoding: .utf8) else { return [:] }
@@ -64,8 +64,8 @@ final class Controller: NSObject, NSMenuDelegate {
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
         item.button?.image = image
-        item.button?.title = image == nil ? "LA" : ""
-        item.button?.toolTip = "lidawake: " + title
+        item.button?.title = image == nil ? "BM" : ""
+        item.button?.toolTip = "bagmaxxing: " + title
         headline.title = title
         let battery = s["battery"].map { $0.isEmpty ? "?" : $0 + "%" } ?? "?"
         let power = s["power"] == "ac" ? "on mains" : "on battery"
