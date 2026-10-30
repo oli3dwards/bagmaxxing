@@ -1,0 +1,179 @@
+#!/bin/bash
+# lidawake: keep the Mac running with the lid closed, like Windows' "when I close
+# the lid: do nothing".
+#
+# It holds macOS's hidden SleepDisabled switch (`pmset -a disablesleep 1`) on, and
+# lets go of it only for low battery or sustained heat. When that happens with the
+# lid shut, it sends a phone notification and puts the Mac to sleep.
+#
+# Usage:  lidawake [status]   what it's doing now, and whether it's installed
+#         lidawake on | off   the menu bar switch, from the terminal
+#         lidawake tick       one check; launchd runs this every 20 s
+#         lidawake log [N]    the last N log lines (default 30)
+#         lidawake uninstall  remove it and put lid-close sleep back to normal
+#
+# Deliberately dependency-free: only /usr/bin tools, because launchd runs with a
+# minimal PATH.
+
+set -uo pipefail
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+ROOT=$(cd "$(dirname "$(readlink "$0" || echo "$0")")/.." && pwd)
+DIR="$HOME/Library/Application Support/lidawake"
+MODE_FILE="$DIR/mode"
+STATE_FILE="$DIR/state"     # HOT_SINCE CUT WARNED, carried between ticks
+STATUS_FILE="$DIR/status"   # key=value, read by the menu bar icon
+LOG="$DIR/lidawake.log"
+THERMAL="$ROOT/build/lidawake-thermal"
+
+LOW_BATTERY=15
+RESUME_BATTERY=20
+HOT_SECONDS=180
+# Optional overrides of the three numbers above, and NTFY_TOPIC / NTFY_SERVER.
+[ -r "$DIR/config.sh" ] && . "$DIR/config.sh"
+
+. "$ROOT/lib/decide.sh"
+
+mkdir -p "$DIR"
+
+log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG"; }
+
+trim_log() { # ~4 days of ticks
+  if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 20000 ]; then
+    tail -n 10000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+  fi
+  return 0
+}
+
+notify() { # title body
+  [ -n "${NTFY_TOPIC:-}" ] || { log "no ntfy topic; not sent: $1"; return 1; }
+  if curl -fsS -m 15 -H "Title: $1" -H "Priority: high" -H "Tags: zzz" \
+       -d "$2" "${NTFY_SERVER:-https://ntfy.sh}/$NTFY_TOPIC" >/dev/null 2>&1; then
+    log "sent [$1] $2"
+  else
+    log "FAILED to send [$1] $2"
+  fi
+}
+
+read_mode() { local m; m=$(cat "$MODE_FILE" 2>/dev/null); [ "$m" = off ] && echo off || echo on; }
+
+battery() { # -> "ac|battery|unknown PCT"
+  local out power pct
+  out=$(pmset -g batt 2>/dev/null)
+  case $out in
+    *"'AC Power'"*) power=ac ;;
+    *"'Battery Power'"*) power=battery ;;
+    *) power=unknown ;;
+  esac
+  pct=$(printf '%s\n' "$out" | sed -n 's/.*[[:space:]]\([0-9][0-9]*\)%;.*/\1/p' | head -n 1)
+  echo "$power ${pct:-}"
+}
+
+thermal() { local t; t=$("$THERMAL" 2>/dev/null) && echo "$t" || echo unknown; }
+
+lid() { # closed | open | unknown
+  case $(ioreg -r -k AppleClamshellState -d 1 2>/dev/null | sed -n -E 's/.*"AppleClamshellState" = (Yes|No).*/\1/p') in
+    Yes) echo closed ;; No) echo open ;; *) echo unknown ;;
+  esac
+}
+
+sleep_disabled() { # 1 if the hidden switch is on
+  local v; v=$(pmset -g 2>/dev/null | awk '$1 == "SleepDisabled" { print $2 }')
+  [ "$v" = 1 ] && echo 1 || echo 0
+}
+
+idle_seconds() { # since the last keyboard, mouse or trackpad input
+  ioreg -c IOHIDSystem -d 4 2>/dev/null | awk '/"HIDIdleTime"/ { print int($NF / 1000000000); exit }'
+}
+
+net() { local i; i=$(route -n get default 2>/dev/null | awk '/interface:/ { print $2 }'); echo "${i:-none}"; }
+
+has_permission() { sudo -n -l /usr/bin/pmset -a disablesleep 1 >/dev/null 2>&1; }
+
+set_switch() { sudo -n /usr/bin/pmset -a disablesleep "$1" >/dev/null 2>&1; }
+
+tick() {
+  local mode power pct therm lidstate now hot_since=- cut=- warned=- want reason new_hot new_cut current err=- sleeping=0
+  mode=$(read_mode)
+  read -r power pct <<< "$(battery)"
+  therm=$(thermal)
+  lidstate=$(lid)
+  now=$(date +%s)
+  [ -r "$STATE_FILE" ] && read -r hot_since cut warned < "$STATE_FILE"
+
+  read -r want reason new_hot new_cut <<< "$(decide "$mode" "$power" "${pct:-}" "$therm" "${hot_since:--}" "${cut:--}" "$now")"
+
+  current=$(sleep_disabled)
+  if [ "$want" != "$current" ]; then
+    if set_switch "$want"; then
+      current=$want
+      log "switch -> $want ($reason)"
+    else
+      err=no-permission
+      log "could not set switch to $want: sudo rule missing (run install.sh)"
+    fi
+  fi
+
+  # A cut-out with the lid shut: tell the phone once, then sleep. Checked on every tick, so
+  # a Mac shut moments before the cut-out still sleeps once it has been left alone.
+  if should_sleep "$new_cut" "$lidstate" "$current" "$(idle_seconds)"; then
+    sleeping=1
+    if [ "${warned:--}" != "$new_cut" ]; then
+      local why
+      [ "$new_cut" = battery ] && why="Battery is at ${pct}%." || why="The Mac has been running hot for $((HOT_SECONDS / 60)) minutes."
+      notify "Mac going to sleep" "$why Lid-closed mode has paused, so anything running stops until you open the lid."
+      warned=$new_cut
+    fi
+  fi
+  [ "$new_cut" = - ] && warned=-
+
+  echo "$new_hot $new_cut ${warned:--}" > "$STATE_FILE"
+  {
+    echo "mode=$mode"
+    echo "active=$current"
+    echo "reason=$reason"
+    echo "error=$err"
+    echo "power=$power"
+    echo "battery=${pct:-}"
+    echo "thermal=$therm"
+    echo "lid=$lidstate"
+    echo "updated=$now"
+  } > "$STATUS_FILE.tmp" && mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+
+  log "lid=$lidstate power=$power pct=${pct:-?} thermal=$therm net=$(net) switch=$current reason=$reason"
+  trim_log
+
+  # Last, so the state above is saved before the Mac goes down.
+  if [ "$sleeping" = 1 ]; then
+    log "sleeping now ($new_cut)"
+    pmset sleepnow >/dev/null 2>&1
+  fi
+}
+
+status() {
+  local mode current
+  mode=$(read_mode)
+  current=$(sleep_disabled)
+  if ! has_permission; then
+    echo "Lid-closed mode: NOT WORKING. It needs the one-time permission (run install.sh)."
+  elif [ "$mode" = off ]; then
+    echo "Lid-closed mode: OFF. Closing the lid sleeps the Mac as normal."
+  elif [ "$current" = 1 ]; then
+    echo "Lid-closed mode: ON. The Mac keeps running with the lid closed."
+  else
+    echo "Lid-closed mode: PAUSED. Closing the lid will sleep the Mac."
+  fi
+  [ -r "$STATUS_FILE" ] && sed -n -E 's/^(reason|power|battery|thermal|lid)=/  \1: /p' "$STATUS_FILE"
+  has_permission && echo "  permission: ok" || echo "  permission: MISSING (run install.sh)"
+  launchctl print "gui/$(id -u)/io.github.oli3dwards.lidawake" >/dev/null 2>&1 \
+    && echo "  background check: running every 20 s" || echo "  background check: NOT LOADED (run install.sh)"
+}
+
+case "${1:-status}" in
+  tick) tick ;;
+  on|off) echo "$1" > "$MODE_FILE"; tick; status ;;
+  status) status ;;
+  log) tail -n "${2:-30}" "$LOG" 2>/dev/null ;;
+  uninstall) exec "$ROOT/uninstall.sh" ;;
+  *) sed -n '2,16p' "$0"; exit 2 ;;
+esac
